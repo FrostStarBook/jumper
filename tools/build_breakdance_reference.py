@@ -25,7 +25,7 @@ CRAB_CLIP = ROOT / "tasks/jumper/dance/media/demo.npz"
 JUMP_CLIP = ROOT / "tasks/jumper/jump/ref/high_jump_flat.npz"
 CONTROL_DT = 0.02
 JUMP_TIME_SCALE = 1.8
-DANCE_SECONDS = 6.0
+DANCE_SECONDS = 27.0
 BLEND_SECONDS = 0.5
 
 
