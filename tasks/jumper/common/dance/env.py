@@ -446,6 +446,8 @@ def dance_env_cfg(
         motion_cmd.velocity_range = {}
         motion_cmd.joint_position_range = (0.0, 0.0)
         motion_cmd.sampling_mode = "start"
+        for name in ("anchor_pos", "anchor_ori", "ee_body_pos"):
+            cfg.terminations.pop(name, None)
 
     def _reference_contract() -> dict:
         """The recording the deployment plays, and how to read it.
