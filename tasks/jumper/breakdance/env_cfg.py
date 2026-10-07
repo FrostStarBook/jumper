@@ -9,7 +9,7 @@ from mjlab.envs import ManagerBasedRlEnvCfg
 from ..dance.env_cfg import env_cfg as dance_env_cfg
 
 MEDIA = Path(__file__).resolve().parent / "media"
-EPISODE_S = 4.0
+EPISODE_S = 12.0
 
 
 def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvCfg:
