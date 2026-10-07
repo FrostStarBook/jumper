@@ -50,6 +50,7 @@ checks that catch an incorrect Python, PyTorch or vendored-package installation.
 | [Setup](USAGE.md#setting-up) | Bring a machine from a fresh clone to a passing test suite. |
 | [Tutorial](TUTORIAL.md) | Train, replay, export and bundle a worked example. |
 | [Manual](USAGE.md) | Commands, tasks, assets, scenes, defaults, TensorBoard and resuming. |
+| [Breakdance](BREAKDANCE.md) | Build the jump-and-dance reference, train it locally and replay it. |
 | [Controls](CONTROLS.md) | The gamepad, the keyboard and what each mode does with them. |
 
 ### You want to put it on a robot

@@ -55,6 +55,9 @@ NOT_LOCOMOTION = {
     # of 20, and its reward budget is the tracking terms rather than the velocity
     # skeleton's. Nothing it could agree with the four on would mean anything.
     "jumper.dance",
+    # Combines a time-stretched jump reference with crab-dance footwork; it is
+    # still fixed-choreography imitation, not a velocity task or gait control.
+    "jumper.breakdance",
     # The same, each with a clip of its own, imported from rl-wbc-fsm.
     "jumper.dance_brazilian",
     "jumper.dance_dream_wings",

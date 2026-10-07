@@ -1,4 +1,4 @@
-<!-- tracks: USAGE.md @ sha256:a32832b3edf24a27 -->
+<!-- tracks: USAGE.md @ sha256:ba5d31bcf142f3e5 -->
 
 # 手册
 
@@ -19,6 +19,7 @@
 - [入口脚本](#入口脚本)
 - [新增一个任务](#新增一个任务)
 - [需要素材的任务：`jumper.dance`](#需要素材的任务jumperdance)
+- [本地霹雳舞训练](BREAKDANCE.md)
 - [带第二个命令的任务：`jumper.posture`](#带第二个命令的任务jumperposture)
 - [新增一个模型（asset）](#新增一个模型asset)
 - [设置默认值](#设置默认值)

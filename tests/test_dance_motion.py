@@ -33,8 +33,8 @@ import pytest
 
 pytest.importorskip("mjlab", reason="the dance config needs mjlab installed")
 
-from tasks.jumper.common.constants import HOME  # noqa: E402
-from tasks.jumper.common.dance import motion as M  # noqa: E402
+from tasks.jumper.common.constants import HOME
+from tasks.jumper.common.dance import motion as M
 from tasks.jumper.dance.env_cfg import MEDIA
 
 CONTROL_DT = 0.02  # 50 Hz: the env's decimation (4) times its timestep (0.005)
@@ -342,6 +342,36 @@ def test_the_measured_channels_are_accepted() -> None:
         # Unit quaternions, or every orientation reward is scored against nonsense.
         norms = np.linalg.norm(data["body_quat_w"], axis=-1)
         assert np.allclose(norms, 1.0, atol=1e-5), f"quat norms span {norms.min()}..{norms.max()}"
+
+
+def test_support_contact_mask_allows_flight_but_checks_grounded_frames() -> None:
+    """Flight is allowed only when the reference explicitly marks contact feet.
+
+    The control group marks an airborne foot as supporting; its height must still
+    fail the same ground check rather than making the mask a way around validation.
+    """
+    home_z = 0.1
+    site_z = np.array(
+        [
+            [0.100, 0.101, 0.099, 0.100],
+            [0.150, 0.151, 0.149, 0.150],
+            [0.100, 0.102, 0.098, 0.101],
+        ]
+    )
+    contact = np.array(
+        [
+            [1, 1, 1, 1],
+            [0, 0, 0, 0],
+            [1, 1, 1, 0],
+        ],
+        dtype=bool,
+    )
+    M._check_support_feet(site_z, home_z, "flight clip", contact)
+
+    invalid_contact = np.zeros_like(contact)
+    invalid_contact[1] = True
+    with pytest.raises(ValueError, match="sit .* from where they sit"):
+        M._check_support_feet(site_z, home_z, "bad contact clip", invalid_contact)
 
 
 def test_the_cache_is_keyed_on_the_robot_and_not_only_the_clip() -> None:

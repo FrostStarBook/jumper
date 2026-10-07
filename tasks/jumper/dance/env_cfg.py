@@ -42,7 +42,13 @@ MEDIA = Path(__file__).resolve().parent / "media"
 EPISODE_S = 10.0
 
 
-def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvCfg:
+def env_cfg(
+    asset: Path | None = None,
+    play: bool = False,
+    *,
+    media: Path = MEDIA,
+    episode_s: float = EPISODE_S,
+) -> ManagerBasedRlEnvCfg:
     """Build this task's environment config.
 
     Args:
@@ -51,12 +57,14 @@ def env_cfg(asset: Path | None = None, play: bool = False) -> ManagerBasedRlEnvC
             structurally different model fails during conversion, by name.
         play: replay mode -- observation noise and disturbances off, the clip
             played from its first frame rather than sampled, unbounded episodes.
+        media: this task's material directory; defaults to the committed demo.
+        episode_s: training window length. Play mode remains unbounded.
     """
     return dance_env_cfg(
-        media=MEDIA,
+        media=media,
         asset=asset,
         play=play,
-        episode_s=EPISODE_S,
+        episode_s=episode_s,
         # ── Reference-state initialisation ────────────────────────────────
         # mjlab's ranges put the root up to 0.05 m and 0.2 rad off the reference
         # at every reset, which for a machine 0.105 m tall and 0.3 m across is

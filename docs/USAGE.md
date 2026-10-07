@@ -19,6 +19,7 @@ example below is `jumper.flat`'s files under another name, numbers included.
 - [The entry points](#the-entry-points)
 - [Adding a task](#adding-a-task)
 - [A task that needs material: `jumper.dance`](#a-task-that-needs-material-jumperdance)
+- [Local breakdance training](BREAKDANCE.md)
 - [A task with a second command: `jumper.posture`](#a-task-with-a-second-command-jumperposture)
 - [Adding a model (asset)](#adding-a-model-asset)
 - [Setting defaults](#setting-defaults)

@@ -55,6 +55,9 @@ tasks/jumper/dance/media/*
 tasks/jumper/dance_*/media/.cache/
 tasks/jumper/gesture_*/media/.cache/
 
+# jumper.breakdance's generated reference is committed; its model-specific conversion cache is not.
+tasks/jumper/breakdance/media/.cache/
+
 # The log MuJoCo leaves in the working directory at runtime
 MUJOCO_LOG.TXT
 

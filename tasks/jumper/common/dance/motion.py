@@ -42,6 +42,7 @@ The `.npz` is the format written by the choreography player (`tools/dance_mujoco
 in the motion-planner repository), one 1-D array per channel at the recording rate:
 
     time, dt, phase              phase: 1 dance, 2 cooldown, 3 hold
+    support_contact              optional [T, 4] contact mask for support legs
     body_{x,y,z,roll,pitch,yaw}  commanded base pose, metres and radians (RPY)
     L{0..5}_j{k}                 commanded joint targets, radians
     meas_*                       the same channels as MuJoCo actually achieved
@@ -314,6 +315,7 @@ class SourceClip:
     root_pos: np.ndarray
     root_rpy: np.ndarray
     phase: np.ndarray
+    support_contact: np.ndarray | None
     dt: float
     bpm: float
     audio_start_s: float
@@ -435,7 +437,10 @@ def load_source(path: Path, reference: str | None = None) -> SourceClip:
         get = {k: np.asarray(data[k], dtype=np.float64) for k in wanted}
         optional = {
             k: np.asarray(data[k], dtype=np.float64)
-            for k in ("phase", "bpm", "audio_start_in_sim", "beat_times_audio")
+            for k in (
+                "phase", "support_contact", "bpm", "audio_start_in_sim",
+                "beat_times_audio",
+            )
             if k in keys
         }
 
@@ -465,11 +470,27 @@ def load_source(path: Path, reference: str | None = None) -> SourceClip:
     if n < 2:
         raise ValueError(f"{path.name}: {n} frame(s) is not a trajectory")
 
+    support_contact = optional.get("support_contact")
+    if support_contact is not None:
+        if support_contact.shape != (n, len(SUPPORT_LEGS)):
+            raise ValueError(
+                f"{path.name}: support_contact must have shape "
+                f"({n}, {len(SUPPORT_LEGS)}), got {support_contact.shape}"
+            )
+        if not np.isfinite(support_contact).all() or not np.isin(
+            support_contact, (0.0, 1.0)
+        ).all():
+            raise ValueError(
+                f"{path.name}: support_contact must contain only finite 0/1 values"
+            )
+        support_contact = support_contact.astype(bool)
+
     return SourceClip(
         joint_pos=joint_pos,
         root_pos=root_pos,
         root_rpy=root_rpy,
         phase=optional.get("phase", np.ones(n)),
+        support_contact=support_contact,
         dt=dt,
         bpm=float(optional.get("bpm", np.array(0.0))),
         audio_start_s=float(optional.get("audio_start_in_sim", np.array(0.0))),
@@ -628,7 +649,12 @@ def _home_support_height(model, data, q_adr: np.ndarray, site_ids: list[int]) ->
     return float(np.mean([data.site_xpos[s][2] for s in site_ids]))
 
 
-def _check_support_feet(site_z: np.ndarray, home_z: float, reference: str) -> None:
+def _check_support_feet(
+    site_z: np.ndarray,
+    home_z: float,
+    reference: str,
+    support_contact: np.ndarray | None = None,
+) -> None:
     """The consistency check: does the reference describe a posture the robot can
     actually stand in?
 
@@ -644,7 +670,27 @@ def _check_support_feet(site_z: np.ndarray, home_z: float, reference: str) -> No
     together, while feet that are in a plane at the wrong height mean the clip was
     recorded against a different ground.
     """
-    spread = float(np.median(site_z.max(axis=1) - site_z.min(axis=1)))
+    if support_contact is None:
+        checked_z = site_z
+    else:
+        if support_contact.shape != site_z.shape:
+            raise ValueError(
+                f"{reference}: support_contact shape {support_contact.shape} does "
+                f"not match support-foot geometry {site_z.shape}"
+            )
+        active = support_contact.sum(axis=1) >= 3
+        if not np.any(active):
+            raise ValueError(
+                f"{reference}: support_contact never marks at least three support "
+                "feet; the reference has no verifiable grounded posture"
+            )
+        checked_z = np.where(support_contact[active], site_z[active], np.nan)
+
+    if support_contact is None:
+        spread = float(np.median(site_z.max(axis=1) - site_z.min(axis=1)))
+    else:
+        frame_spread = np.nanmax(checked_z, axis=1) - np.nanmin(checked_z, axis=1)
+        spread = float(np.median(frame_spread))
     if spread > _SUPPORT_COPLANAR_TOL:
         raise ValueError(
             f"the reference does not describe a posture the robot can stand in: "
@@ -656,7 +702,7 @@ def _check_support_feet(site_z: np.ndarray, home_z: float, reference: str) -> No
             f"kinematics on them to close. Use 'measured', or check that the base "
             f"pose and the joint angles come from the same take."
         )
-    offset = float(np.median(site_z)) - home_z
+    offset = float(np.nanmedian(checked_z)) - home_z
     if abs(offset) > _SUPPORT_HEIGHT_TOL:
         raise ValueError(
             f"the support feet are coplanar but sit {offset * 1000:+.1f} mm from "
@@ -802,7 +848,7 @@ def _fingerprint(source: Path, target_dt: float, reference: str, model) -> str:
     """
     h = hashlib.sha256()
     h.update(source.read_bytes())
-    h.update(f"|{target_dt!r}|{reference}|{_model_digest(model)}|v2".encode())
+    h.update(f"|{target_dt!r}|{reference}|{_model_digest(model)}|v3".encode())
     return h.hexdigest()
 
 
@@ -946,7 +992,14 @@ def ensure_motion_npz(
 
         site_z[k] = [data.site_xpos[s][2] for s in site_ids]
 
-    _check_support_feet(site_z, home_z, ref)
+    support_contact = clip.support_contact
+    if support_contact is not None:
+        ratio = target_dt / clip.dt
+        n_contact = int(np.floor((len(support_contact) - 1) * clip.dt / target_dt)) + 1
+        source_frames = np.rint(np.arange(n_contact) * ratio).astype(int)
+        source_frames = np.clip(source_frames, 0, len(support_contact) - 1)
+        support_contact = support_contact[source_frames]
+    _check_support_feet(site_z, home_z, ref, support_contact)
 
     cache.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
