@@ -35,10 +35,10 @@ CONTROL_DT = 0.02
 DURATION_S = 10.0
 NUM_SPINS = 2.0  # full yaw revolutions over the clip
 BODY_DROP_M = 0.02  # how much lower than STAND_Z
-FRONT_REACH = 0.30  # rad-scale blend of front-arm plant pose
-LEG_SWING = 0.0  # mid/rear joint swing amplitude (rad)
-CIRCLE_RADIUS_XY = 0.0  # small root orbit (m); 0 = pure spin in place
-PITCH_RAD = 0.0  # slight nose-down
+FRONT_REACH = 0.5  # rad-scale blend of front-arm plant pose
+LEG_SWING = 0.1  # mid/rear joint swing amplitude (rad)
+CIRCLE_RADIUS_XY = 0.5  # small root orbit (m); 0 = pure spin in place
+PITCH_RAD = 0.002  # slight nose-down
 
 # Soft ease-in / ease-out of the spin amplitude at the ends (seconds)
 EASE_S = 0.6
@@ -156,27 +156,21 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
         col = entity_joints.index(name)
         joint_pos[:, col] = home_q[col] + FRONT_REACH * press * env * delta
 
-    # Mid / rear: four legs with 90° phase offsets (circular footwork feel)
-    # Joint index layout inside each 3-DoF leg: J0 hip yaw-ish, J1, J2 knee-ish
+    # 中后腿：只动 J0（几乎不改变足高），J1/J2 锁 HOME，方便过共面检查
     swing_legs = {
         "LM": 0.0,
         "RM": 0.5 * np.pi,
         "LR": np.pi,
         "RR": 1.5 * np.pi,
     }
-    
     for leg, phi0 in swing_legs.items():
-        names = [f"{leg}_J0_joint", f"{leg}_J1_joint", f"{leg}_J2_joint"]
-        cols = [entity_joints.index(nm) for nm in names]
+        col0 = entity_joints.index(f"{leg}_J0_joint")
+        col1 = entity_joints.index(f"{leg}_J1_joint")
+        col2 = entity_joints.index(f"{leg}_J2_joint")
         phi = phase + phi0
-        # Keep amplitudes modest so feet stay near the ground plane
-        # joint_pos[:, cols[0]] = home_q[cols[0]] + LEG_SWING * env * np.sin(phi)
-        # joint_pos[:, cols[1]] = home_q[cols[1]] + 0.6 * LEG_SWING * env * np.cos(phi)
-        # joint_pos[:, cols[2]] = home_q[cols[2]] + 0.4 * LEG_SWING * env * np.sin(phi + 0.4)
-        joint_pos[:, cols[0]] = home_q[cols[0]] + LEG_SWING * env * np.sin(phi)
-        joint_pos[:, cols[1]] = home_q[cols[1]] + 0.25 * LEG_SWING * env * np.cos(phi)
-        # J2 留给后面的共面修正，这里几乎不动
-        joint_pos[:, cols[2]] = home_q[cols[2]]
+        joint_pos[:, col0] = home_q[col0] + LEG_SWING * env * np.sin(phi)
+        joint_pos[:, col1] = home_q[col1]   # 不动
+        joint_pos[:, col2] = home_q[col2]   # 留给共面修正 / 保持 HOME
 
         # --- 把四条 SUPPORT 腿的脚尖拉回共面（改 J2）---
     support_leg_j2 = {
