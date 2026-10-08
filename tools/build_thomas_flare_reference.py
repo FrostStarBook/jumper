@@ -33,12 +33,12 @@ OUT_NAME = "breakdance.npz"
 
 CONTROL_DT = 0.02
 DURATION_S = 10.0
-NUM_SPINS = 2.0          # full yaw revolutions over the clip
-BODY_DROP_M = 0.015      # how much lower than STAND_Z
-FRONT_REACH = 0.25       # rad-scale blend of front-arm plant pose
-LEG_SWING = 0.08         # mid/rear joint swing amplitude (rad)
-CIRCLE_RADIUS_XY = 0.01  # small root orbit (m); 0 = pure spin in place
-PITCH_RAD = 0.12         # slight nose-down
+NUM_SPINS = 2.0  # full yaw revolutions over the clip
+BODY_DROP_M = 0.02  # how much lower than STAND_Z
+FRONT_REACH = 0.30  # rad-scale blend of front-arm plant pose
+LEG_SWING = 0.0  # mid/rear joint swing amplitude (rad)
+CIRCLE_RADIUS_XY = 0.0  # small root orbit (m); 0 = pure spin in place
+PITCH_RAD = 0.0  # slight nose-down
 
 # Soft ease-in / ease-out of the spin amplitude at the ends (seconds)
 EASE_S = 0.6
@@ -115,8 +115,7 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
     qpos_addresses = np.asarray([model.jnt_qposadr[j] for j in joint_ids])
 
     support_site_ids = [
-        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, leg)
-        for leg in SUPPORT_LEGS
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, leg) for leg in SUPPORT_LEGS
     ]
     if any(s < 0 for s in support_site_ids):
         raise ValueError(f"support foot sites not found for {SUPPORT_LEGS}")
@@ -165,6 +164,7 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
         "LR": np.pi,
         "RR": 1.5 * np.pi,
     }
+    
     for leg, phi0 in swing_legs.items():
         names = [f"{leg}_J0_joint", f"{leg}_J1_joint", f"{leg}_J2_joint"]
         cols = [entity_joints.index(nm) for nm in names]
@@ -279,7 +279,9 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
         "body_drop_m": float(BODY_DROP_M),
         "max_joint_speed_rad_s": max_speed,
         "corner_speed_rad_s": float(CORNER_SPEED),
-        "grounded_support_frames": int(np.count_nonzero(support_contact.sum(axis=1) >= 3)),
+        "grounded_support_frames": int(
+            np.count_nonzero(support_contact.sum(axis=1) >= 3)
+        ),
         "mean_front_site_z": float(np.mean(front_z)),
         "mean_support_site_z": float(np.mean(support_z)),
         "home_support_z": float(home_z),
