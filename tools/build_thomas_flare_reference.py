@@ -35,9 +35,9 @@ CONTROL_DT = 0.02
 DURATION_S = 10.0
 NUM_SPINS = 2.0  # full yaw revolutions over the clip
 BODY_DROP_M = 0.02  # how much lower than STAND_Z
-FRONT_REACH = 0.5  # rad-scale blend of front-arm plant pose
-LEG_SWING = 0.1  # mid/rear joint swing amplitude (rad)
-CIRCLE_RADIUS_XY = 0.5  # small root orbit (m); 0 = pure spin in place
+FRONT_REACH = 0.6  # rad-scale blend of front-arm plant pose
+LEG_SWING = 0.08  # mid/rear joint swing amplitude (rad)
+CIRCLE_RADIUS_XY = 0.0  # small root orbit (m); 0 = pure spin in place
 PITCH_RAD = 0.002  # slight nose-down
 
 # Soft ease-in / ease-out of the spin amplitude at the ends (seconds)
@@ -137,24 +137,29 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
     phase = 2.0 * np.pi * NUM_SPINS * (t / DURATION_S)
 
     # --- root trajectory ---
-    yaw = phase * env
+    # phase 已是 0 → 2π*NUM_SPINS，单调增加
+    yaw = phase.copy()  # 不要写 phase * env
+    # 若只想两端转慢一点，可以对角速度做平滑，而不是把角度乘回 0：
+    # rate = env
+    # yaw = np.cumsum(rate) * (NUM_SPINS * 2*np.pi / (rate.sum() + 1e-8))
     root_pos = np.zeros((n, 3), dtype=np.float64)
     root_pos[:, 0] = CIRCLE_RADIUS_XY * np.cos(yaw)
     root_pos[:, 1] = CIRCLE_RADIUS_XY * np.sin(yaw)
     root_pos[:, 2] = STAND_Z - BODY_DROP_M
 
     root_rpy = np.zeros((n, 3), dtype=np.float64)
-    root_rpy[:, 1] = PITCH_RAD * env  # pitch
+    root_rpy[:, 1] = 0.0  # PITCH 保持 0
     root_rpy[:, 2] = yaw
 
     # --- joint trajectory from HOME + plant + phased leg swings ---
     joint_pos = np.tile(home_q, (n, 1))
 
     # Front arms: blend toward plant pose with a slow press pulse
-    press = 0.5 + 0.5 * np.sin(phase)  # 0..1
+    press = 0.3 + 0.7 * (0.5 + 0.5 * np.sin(2.0 * phase))
     for name, delta in plant.items():
         col = entity_joints.index(name)
-        joint_pos[:, col] = home_q[col] + FRONT_REACH * press * env * delta
+        joint_pos[:, col] = home_q[col] + FRONT_REACH * press * delta
+    # 注意：这里不要再乘 env，或只在前 0.5s / 后 0.5s 淡入淡出
 
     # 中后腿：只动 J0（几乎不改变足高），J1/J2 锁 HOME，方便过共面检查
     swing_legs = {
@@ -168,9 +173,9 @@ def _build_arrays() -> tuple[dict[str, np.ndarray], dict[str, float | int]]:
         col1 = entity_joints.index(f"{leg}_J1_joint")
         col2 = entity_joints.index(f"{leg}_J2_joint")
         phi = phase + phi0
-        joint_pos[:, col0] = home_q[col0] + LEG_SWING * env * np.sin(phi)
-        joint_pos[:, col1] = home_q[col1]   # 不动
-        joint_pos[:, col2] = home_q[col2]   # 留给共面修正 / 保持 HOME
+        joint_pos[:, col0] = home_q[col0] + LEG_SWING * np.sin(phi)  # 可不乘 env
+        joint_pos[:, col1] = home_q[col1]  # 不动
+        joint_pos[:, col2] = home_q[col2]  # 留给共面修正 / 保持 HOME
 
         # --- 把四条 SUPPORT 腿的脚尖拉回共面（改 J2）---
     support_leg_j2 = {
